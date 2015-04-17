@@ -62,7 +62,8 @@ class Client
 
 						lng = convertDegreeAngleToDouble(getAttribute(xml, "Longitude","Degrees"),getAttribute(xml, "Longitude","Minutes"),getAttribute(xml, "Longitude","Seconds"))
 
-						result = @client.query("SELECT head,trains.train_code,trains.train_desc,mcc,mnc,ssi,tracker_code FROM tracker.train_radios
+						result = @client.query("SELECT trains.id,head,trains.train_code,trains.train_desc,mcc,mnc,ssi,tracker_code 
+							FROM tracker.train_radios
 							INNER JOIN radios on train_radios.radio_id = radios.id
 							INNER JOIN trains on train_radios.train_id = trains.id
 							WHERE mcc = #{mcc}
@@ -70,6 +71,7 @@ class Client
 							AND ssi = #{ssi}");
 						if result.count > 0
 							result.each do |row|
+								train_id = row["id"]
 							  	train_code = row["train_code"]
 							  	train_desc = row["train_desc"]
 							  	mcc = row["mcc"]
@@ -77,9 +79,9 @@ class Client
 							  	ssi = row["ssi"]
 							  	tracker_code = row["tracker_code"]
 							  	head = row["head"]
-							  	puts @client.query("INSERT INTO logs (train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
+							  	puts @client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
 							 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng)
-		    	                   VALUES ('#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
+		    	                   VALUES ('#{train_id}','#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
 		    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}')")
 							end
 						end
