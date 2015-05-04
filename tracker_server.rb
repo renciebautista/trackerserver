@@ -12,8 +12,6 @@ class Client
 		# See http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/MysqlAdapter.html
 		@config = YAML.load_file('config/server.conf')
 
-		
-
 		name = @config['tigserver']['name']
 		version = @config['tigserver']['version']
 
@@ -49,10 +47,10 @@ class Client
 							# puts getAttribute(xml, "Call.Resource","Status").to_s
 							call = Thread.new do
 								client = Mysql2::Client.new(
-								  host: @config['database']['host'], 
-								  username: @config['database']['username'],
-								  password: @config['database']['password'],
-								  database: @config['database']['database'],
+								  :host => @config['database']['host'], 
+								  :username => @config['database']['username'],
+								  :password => @config['database']['password'],
+								  :database => @config['database']['database']
 								)
 								number = getAttribute(xml, "Tetra","Ssi")
 								result = client.query("SELECT train_id,train_radios.id,head
@@ -71,7 +69,7 @@ class Client
 									end
 								end
 							end
-							puts call.to_s + "New Call!"
+							# puts call.to_s + "New Call!"
 						end
 					end
 					
@@ -79,10 +77,10 @@ class Client
 					if !xmldoc2.empty?
 						log = Thread.new do
 							client = Mysql2::Client.new(
-								  host: @config['database']['host'], 
-								  username: @config['database']['username'],
-								  password: @config['database']['password'],
-								  database: @config['database']['database'],
+								  	:host => @config['database']['host'], 
+								  	:username => @config['database']['username'],
+								  	:password => @config['database']['password'],
+								  	:database => @config['database']['database']
 								)
 
 							mcc = getAttribute(xml, "Tetra","Mcc")
@@ -128,9 +126,9 @@ class Client
 								end
 							end
 						end
-						puts log.to_s + "New Log!"
+						# puts log.to_s + "New Log!"
 					end
-					puts new_msg.to_s + "New Message!"
+					# puts new_msg.to_s + "New Message!"
 			    end
 		    }
 			rescue  Exception => e
