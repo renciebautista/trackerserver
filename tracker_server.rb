@@ -20,7 +20,7 @@ class Client
 		@connect = "<?xml version=\"1.0\"?><Tig><Client.Connect Name=\"#{name}\" Version=\"#{version}\" /></Tig>"
 		puts @connect
 		@socket = socket
-		@socket.send(@connect, 0, @tigip , @tigport)
+		@socket.send(@connect, 0, @tigip.to_s , @tigport.to_i)
 		listen
     	send
 	end
@@ -69,7 +69,7 @@ class Client
 									end
 								end
 							end
-							# puts call.to_s + "New Call!"
+							puts call.to_s + "New Call!"
 						end
 					end
 					
@@ -126,9 +126,9 @@ class Client
 								end
 							end
 						end
-						# puts log.to_s + "New Log!"
+						puts log.to_s + "New Log!"
 					end
-					# puts new_msg.to_s + "New Message!"
+					puts new_msg.to_s + "New Message!"
 			    end
 		    }
 			rescue  Exception => e
