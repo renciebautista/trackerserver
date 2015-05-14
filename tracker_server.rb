@@ -146,6 +146,17 @@ class Client
 		   # @socket.send(@connect, 0, @tigip , @tigport)
 		begin
 		    @socket.send(@connect, 0, @tigip , @tigport)
+
+		    Thread.new do
+				client = Mysql2::Client.new(
+				  :host => @config['database']['host'], 
+				  :username => @config['database']['username'],
+				  :password => @config['database']['password'],
+				  :database => @config['database']['database']
+				)
+				timestamp = Time.now
+				client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+			end
 		rescue
 		    handle_error
 		ensure
