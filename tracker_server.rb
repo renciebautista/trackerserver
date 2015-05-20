@@ -100,31 +100,58 @@ class Client
 							lat = convertDegreeAngleToDouble(getAttribute(xml, "Latitude","Degrees"),getAttribute(xml, "Latitude","Minutes"),getAttribute(xml, "Latitude","Seconds"))
 
 							lng = convertDegreeAngleToDouble(getAttribute(xml, "Longitude","Degrees"),getAttribute(xml, "Longitude","Minutes"),getAttribute(xml, "Longitude","Seconds"))
-							query = "SELECT trains.id,head,trains.train_code,trains.train_desc,mcc,mnc,ssi,tracker_code 
+
+							# check if radio exist and active
+							query = "SELECT * FROM radios
+								WHERE id NOT IN (SELECT radio_id FROM train_radios )
+								AND radios.active = 1
+								AND mcc = #{mcc}
+								AND mnc = #{mnc}
+								AND ssi = #{ssi}"
+
+							radio_result = client.query(query);
+							if radio_result.count > 0 
+								radio_result.each do |row|
+										radio_id = row["id"].to_s
+									  	mcc = row["mcc"].to_s
+									  	mnc = row["mnc"].to_s
+									  	ssi = row["ssi"].to_s
+									  	tracker_code = row["tracker_code"].to_s
+									  	head = row["head"].to_s
+									  	client.query("INSERT INTO radio_logs (radio_id, mcc, mnc, ssi, tracker_code,
+									 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng)
+				    	                   VALUES ('#{radio_id}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}',
+				    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}')")
+									end
+							else
+								query2 = "SELECT trains.id,head,trains.train_code,trains.train_desc,mcc,mnc,ssi,tracker_code 
 								FROM tracker.train_radios
 								INNER JOIN radios on train_radios.radio_id = radios.id
 								INNER JOIN trains on train_radios.train_id = trains.id
 								WHERE mcc = #{mcc}
 								AND mnc = #{mnc}
 								AND ssi = #{ssi}"
-
-							result = client.query(query);
-							if result.count > 0
-								result.each do |row|
-									train_id = row["id"].to_s
-								  	train_code = row["train_code"].to_s
-								  	train_desc = row["train_desc"].to_s
-								  	mcc = row["mcc"].to_s
-								  	mnc = row["mnc"].to_s
-								  	ssi = row["ssi"].to_s
-								  	tracker_code = row["tracker_code"].to_s
-								  	head = row["head"].to_s
-								  	client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
-								 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng)
-			    	                   VALUES ('#{train_id}','#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
-			    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}')")
+								
+								result = client.query(query2);
+								if result.count > 0
+									result.each do |row|
+										train_id = row["id"].to_s
+									  	train_code = row["train_code"].to_s
+									  	train_desc = row["train_desc"].to_s
+									  	mcc = row["mcc"].to_s
+									  	mnc = row["mnc"].to_s
+									  	ssi = row["ssi"].to_s
+									  	tracker_code = row["tracker_code"].to_s
+									  	head = row["head"].to_s
+									  	client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
+									 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng)
+				    	                   VALUES ('#{train_id}','#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
+				    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}')")
+									end
 								end
-							end
+							end	
+
+
 						end
 						puts log.to_s + "New Log!"
 					end
