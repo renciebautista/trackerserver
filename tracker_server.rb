@@ -22,7 +22,7 @@ class Client
 		@socket = socket
 		@socket.send(@connect, 0, @tigip.to_s , @tigport.to_i)
 		listen
-    	send
+		send
 	end
 
 	def getAttribute(xml, tagname, attribute)
@@ -53,6 +53,7 @@ class Client
 									  :password => @config['database']['password'],
 									  :database => @config['database']['database']
 									)
+
 									number = getAttribute(xml, "Tetra","Ssi")
 									result = client.query("SELECT train_id,train_radios.id,head
 										FROM train_radios
@@ -60,18 +61,19 @@ class Client
 										WHERE ssi = #{number}");
 
 										if result.count > 0
-										result.each do |row|
-										  	train_id = row["train_id"].to_s
-										  	id = row["id"].to_s
-										  	if row["head"] == 0
-										  		client.query("UPDATE train_radios SET head = 0 WHERE train_id = '#{train_id}'")
-										  		client.query("UPDATE train_radios SET head = 1 WHERE id = '#{id}'")
-										  	end
+											result.each do |row|
+												train_id = row["train_id"].to_s
+												id = row["id"].to_s
+												if row["head"] == 0
+													client.query("UPDATE train_radios SET head = 0 WHERE train_id = '#{train_id}'")
+													client.query("UPDATE train_radios SET head = 1 WHERE id = '#{id}'")
+												end
+											end
 										end
-									end
+									client.close
 								rescue  Exception => e
 									listen
-								  	puts response.to_s + "MySql Server cannot be found!"
+									puts response.to_s + "MySql Server cannot be found!"
 								end
 							end
 							puts call.to_s + "Radio Call.Resource"
@@ -83,10 +85,10 @@ class Client
 						log = Thread.new do
 							begin
 								client = Mysql2::Client.new(
-									  	:host => @config['database']['host'], 
-									  	:username => @config['database']['username'],
-									  	:password => @config['database']['password'],
-									  	:database => @config['database']['database']
+										:host => @config['database']['host'], 
+										:username => @config['database']['username'],
+										:password => @config['database']['password'],
+										:database => @config['database']['database']
 									)
 
 								mcc = getAttribute(xml, "Tetra","Mcc")
@@ -119,15 +121,15 @@ class Client
 								if radio_result.count > 0 
 									radio_result.each do |row|
 											radio_id = row["id"].to_s
-										  	mcc = row["mcc"].to_s
-										  	mnc = row["mnc"].to_s
-										  	ssi = row["ssi"].to_s
-										  	tracker_code = row["tracker_code"].to_s
-										  	image_index = row["image_index"].to_s
-										  	client.query("INSERT INTO radio_logs (radio_id, mcc, mnc, ssi, tracker_code,
-										 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng, image_index)
-					    	                   VALUES ('#{radio_id}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}',
-					    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}', '#{image_index}')")
+											mcc = row["mcc"].to_s
+											mnc = row["mnc"].to_s
+											ssi = row["ssi"].to_s
+											tracker_code = row["tracker_code"].to_s
+											image_index = row["image_index"].to_s
+											client.query("INSERT INTO radio_logs (radio_id, mcc, mnc, ssi, tracker_code,
+												subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng, image_index)
+											   VALUES ('#{radio_id}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}',
+												'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}', '#{image_index}')")
 										end
 								else
 									query2 = "SELECT trains.id,head,trains.train_code,trains.train_desc,mcc,mnc,ssi,tracker_code, trains.image_index
@@ -142,35 +144,58 @@ class Client
 									if result.count > 0
 										result.each do |row|
 											train_id = row["id"].to_s
-										  	train_code = row["train_code"].to_s
-										  	train_desc = row["train_desc"].to_s
-										  	mcc = row["mcc"].to_s
-										  	mnc = row["mnc"].to_s
-										  	ssi = row["ssi"].to_s
-										  	tracker_code = row["tracker_code"].to_s
-										  	image_index = row["image_index"].to_s
-										  	head = row["head"].to_s
-										  	client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
-										 		subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng, image_index)
-					    	                   VALUES ('#{train_id}','#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
-					    	                   	'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}', '#{image_index}')")
+											train_code = row["train_code"].to_s
+											train_desc = row["train_desc"].to_s
+											mcc = row["mcc"].to_s
+											mnc = row["mnc"].to_s
+											ssi = row["ssi"].to_s
+											tracker_code = row["tracker_code"].to_s
+											image_index = row["image_index"].to_s
+											head = row["head"].to_s
+											client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
+												subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng, image_index)
+											   VALUES ('#{train_id}','#{train_code}', '#{train_desc}', '#{mcc}', '#{mnc}', '#{ssi}', '#{tracker_code}', '#{head}',
+												'#{name}', '#{uplink}', '#{speed}', '#{course}', '#{alt}', '#{error}', '#{lat}', '#{lng}', '#{image_index}')")
 										end
 									end
 								end	
+								client.close
 							rescue  Exception => e
 								listen
-							  	puts response.to_s + "MySql Server cannot be found!"
+								puts response.to_s + "MySql Server cannot be found!"
 							end
 
 						end
 						puts log.to_s + "Radio Subscriber.Location"
 					end
+
+					xmldoc3 = XPath.match(xml, "Tig/Client.Connected")
+					if !xmldoc3.empty?
+						if getAttribute(xml, "Client.Connected","Success").to_s == "1"
+							connected = Thread.new do
+								begin
+									client = Mysql2::Client.new(
+									  :host => @config['database']['host'], 
+									  :username => @config['database']['username'],
+									  :password => @config['database']['password'],
+									  :database => @config['database']['database']
+									)
+									timestamp = Time.now
+									client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+									client.close
+								rescue  Exception => e
+									listen
+									puts response.to_s + "Tetra Server cannot be found!"
+								end	
+							end
+						end
+					end
 					puts new_msg.to_s + "Radio Activity"
-			    end
-		    }
+				end
+			}
 			rescue  Exception => e
 				listen
-			  	puts response.to_s + "Tetra Server cannot be found!"
+				puts response.to_s + "Tetra Server cannot be found!"
 			end
 
 			
@@ -182,27 +207,29 @@ class Client
 		  # p Time.now
 		   # @socket.send(@connect, 0, @tigip , @tigport)
 		begin
-		    @socket.send(@connect, 0, @tigip , @tigport)
+			@socket.send(@connect, 0, @tigip , @tigport)
 
-		    response = Thread.new do
-		    	begin
-				client = Mysql2::Client.new(
-				  :host => @config['database']['host'], 
-				  :username => @config['database']['username'],
-				  :password => @config['database']['password'],
-				  :database => @config['database']['database']
-				)
-				timestamp = Time.now
-				client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
-				rescue  Exception => e
-					listen
-				  	puts response.to_s + "MySql Server cannot be found!"
-				end
-			end
+			# response = Thread.new do
+			# 	begin
+			# 	client = Mysql2::Client.new(
+			# 	  :host => @config['database']['host'], 
+			# 	  :username => @config['database']['username'],
+			# 	  :password => @config['database']['password'],
+			# 	  :database => @config['database']['database']
+			# 	)
+			# 	timestamp = Time.now
+			# 	client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+			# 	client.close
+			# 	rescue  Exception => e
+			# 		listen
+			# 		puts response.to_s + "MySql Server cannot be found!"
+			# 	end
+			# end
+			
 		rescue
-		    handle_error
+			handle_error
 		ensure
-		    # this_code_is_always_executed
+			# this_code_is_always_executed
 		end
 		  
 		  # Thread.kill(@response)
@@ -213,11 +240,11 @@ class Client
   def every_so_many_seconds(seconds)
 	  last_tick = Time.now
 	  loop do
-	    sleep 0.1
-	    if Time.now - last_tick >= seconds
-	      last_tick += seconds
-	      yield
-	    end
+		sleep 0.1
+		if Time.now - last_tick >= seconds
+		  last_tick += seconds
+		  yield
+		end
 	  end
 	end
 
