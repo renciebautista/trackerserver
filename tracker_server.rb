@@ -39,12 +39,12 @@ class Client
 			begin
 			  loop {
 				new_msg = Thread.start(@socket.recvfrom(65536)) do | msg, sender |
-					# puts msg
 					xml = Document.new(msg)
+
+					# check if a radio call is made
 					xmldoc = XPath.match(xml, "Tig/Call.Resource")
 					if !xmldoc.empty?
 						if getAttribute(xml, "Call.Resource","Status").to_s == "Granted"
-							# puts getAttribute(xml, "Call.Resource","Status").to_s
 							call = Thread.new do
 								begin
 									client = Mysql2::Client.new(
@@ -80,6 +80,7 @@ class Client
 						end
 					end
 					
+					# check if a data is sent from tnx
 					xmldoc2 = XPath.match(xml, "Tig/Subscriber.Location")
 					if !xmldoc2.empty?
 						log = Thread.new do
@@ -140,7 +141,7 @@ class Client
 									AND mnc = #{mnc}
 									AND ssi = #{ssi}"
 									
-									result = client.query(query2);
+									result = client.query(query2)
 									if result.count > 0
 										result.each do |row|
 											train_id = row["id"].to_s
@@ -169,6 +170,7 @@ class Client
 						puts log.to_s + "Radio Subscriber.Location"
 					end
 
+					# check if application is connected
 					xmldoc3 = XPath.match(xml, "Tig/Client.Connected")
 					if !xmldoc3.empty?
 						if getAttribute(xml, "Client.Connected","Success").to_s == "1"
@@ -180,8 +182,17 @@ class Client
 									  :password => @config['database']['password'],
 									  :database => @config['database']['database']
 									)
+
 									timestamp = Time.now
-									client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+
+									query_check = "SELECT * FROM settings"
+									result = client.query(query_check)
+									if result.count > 0
+										client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+									else
+										client.query("INSERT INTO settings (last_update) VALUES ('#{timestamp}')")
+									end
+									
 									client.close
 								rescue  Exception => e
 									listen
@@ -190,6 +201,7 @@ class Client
 							end
 						end
 					end
+					
 					puts new_msg.to_s + "Radio Activity"
 				end
 			}
@@ -204,36 +216,13 @@ class Client
 
   def send
 	every_so_many_seconds(4) do
-		  # p Time.now
-		   # @socket.send(@connect, 0, @tigip , @tigport)
 		begin
 			@socket.send(@connect, 0, @tigip , @tigport)
-
-			# response = Thread.new do
-			# 	begin
-			# 	client = Mysql2::Client.new(
-			# 	  :host => @config['database']['host'], 
-			# 	  :username => @config['database']['username'],
-			# 	  :password => @config['database']['password'],
-			# 	  :database => @config['database']['database']
-			# 	)
-			# 	timestamp = Time.now
-			# 	client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
-			# 	client.close
-			# 	rescue  Exception => e
-			# 		listen
-			# 		puts response.to_s + "MySql Server cannot be found!"
-			# 	end
-			# end
-			
 		rescue
 			handle_error
 		ensure
 			# this_code_is_always_executed
 		end
-		  
-		  # Thread.kill(@response)
-		  # listen
 	end
   end
 
