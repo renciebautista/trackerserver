@@ -6,17 +6,17 @@ include REXML
 
 
 class Client
-	def initialize(socket)
+	def initialize(socket,config)
 		# this takes a hash of options, almost all of which map directly
 		# to the familiar database.yml in rails
 		# See http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/MysqlAdapter.html
-		@config = YAML.load_file('config/server.conf')
+		@config = config
 
 		name = @config['tigserver']['name']
 		version = @config['tigserver']['version']
 
 		@tigip = @config['tigserver']['ip']
-		@tigport = @config['tigserver']['port']
+		@tigport = @config['tigserver']['txport']
 		@connect = "<?xml version=\"1.0\"?><Tig><Client.Connect Name=\"#{name}\" Version=\"#{version}\" /></Tig>"
 		puts @connect
 		@socket = socket
@@ -170,37 +170,63 @@ class Client
 						puts log.to_s + "Radio Subscriber.Location"
 					end
 
-					# check if application is connected
-					xmldoc3 = XPath.match(xml, "Tig/Client.Connected")
-					if !xmldoc3.empty?
-						if getAttribute(xml, "Client.Connected","Success").to_s == "1"
-							connected = Thread.new do
-								begin
-									client = Mysql2::Client.new(
-									  :host => @config['database']['host'], 
-									  :username => @config['database']['username'],
-									  :password => @config['database']['password'],
-									  :database => @config['database']['database']
-									)
+					connected = Thread.new do
+						begin
+							client = Mysql2::Client.new(
+							  :host => @config['database']['host'], 
+							  :username => @config['database']['username'],
+							  :password => @config['database']['password'],
+							  :database => @config['database']['database']
+							)
 
-									timestamp = Time.now
+							timestamp = Time.now
 
-									query_check = "SELECT * FROM settings"
-									result = client.query(query_check)
-									if result.count > 0
-										client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
-									else
-										client.query("INSERT INTO settings (last_update) VALUES ('#{timestamp}')")
-									end
-									
-									client.close
-								rescue  Exception => e
-									listen
-									puts response.to_s + "Tetra Server cannot be found!"
-								end	
+							query_check = "SELECT * FROM settings"
+							result = client.query(query_check)
+							if result.count > 0
+								client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+							else
+								client.query("INSERT INTO settings (last_update) VALUES ('#{timestamp}')")
 							end
-						end
+							
+							client.close
+						rescue  Exception => e
+							listen
+							puts response.to_s + "Tetra Server cannot be found!"
+						end	
 					end
+
+					# check if application is connected
+					# xmldoc3 = XPath.match(xml, "Tig/Client.Connected")
+					# if !xmldoc3.empty?
+					# 	if getAttribute(xml, "Client.Connected","Success").to_s == "1"
+					# 		connected = Thread.new do
+					# 			begin
+					# 				client = Mysql2::Client.new(
+					# 				  :host => @config['database']['host'], 
+					# 				  :username => @config['database']['username'],
+					# 				  :password => @config['database']['password'],
+					# 				  :database => @config['database']['database']
+					# 				)
+
+					# 				timestamp = Time.now
+
+					# 				query_check = "SELECT * FROM settings"
+					# 				result = client.query(query_check)
+					# 				if result.count > 0
+					# 					client.query("UPDATE settings SET last_update = '#{timestamp}' WHERE id = 1")
+					# 				else
+					# 					client.query("INSERT INTO settings (last_update) VALUES ('#{timestamp}')")
+					# 				end
+									
+					# 				client.close
+					# 			rescue  Exception => e
+					# 				listen
+					# 				puts response.to_s + "Tetra Server cannot be found!"
+					# 			end	
+					# 		end
+					# 	end
+					# end
 					
 					puts new_msg.to_s + "Radio Activity"
 				end
@@ -239,6 +265,7 @@ class Client
 
 end
 
+config = YAML.load_file('config/server.conf')
 socket = UDPSocket.new
-socket.bind("", 30512)
-Client.new(socket)
+socket.bind("", config['tigserver']['rxport'])
+Client.new(socket,config)
