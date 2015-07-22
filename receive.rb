@@ -1,6 +1,6 @@
 require 'socket'
 require 'ipaddr'
-MULTICAST_ADDR = "224.0.0.0" 
+MULTICAST_ADDR = "225.4.5.6" 
 PORT = 5000
 ip =  IPAddr.new(MULTICAST_ADDR).hton + IPAddr.new("0.0.0.0").hton
 sock = UDPSocket.new
