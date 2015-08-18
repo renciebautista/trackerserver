@@ -1,17 +1,27 @@
+#!/usr/bin/env ruby
 require 'yaml'
 require 'socket'
 require 'mysql2'
 require 'rexml/document'
+require 'logger'
 include REXML
 
+# daemonize 
+Process.daemon(true,false)
+ 
+# write pid
+pid_file = File.dirname(__FILE__) + "#{__FILE__}.pid"
+File.open(pid_file, 'w') {|f| f.write Process.pid }
 
 class Client
 	def initialize(socket,config)
+		@log = Logger.new( 'log.txt', 'daily' )
+
 		# this takes a hash of options, almost all of which map directly
 		# to the familiar database.yml in rails
 		# See http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/MysqlAdapter.html
 		@config = config
-		
+		@lifetime = 2
 		# @config = config
 		@index = 0
 		name = @config['tigserver']['name']
@@ -24,6 +34,7 @@ class Client
 		listen
 
 		@received = false
+		@cnt = 0
 		send
 	end
 
@@ -43,10 +54,30 @@ class Client
 					new_msg = Thread.start(@socket.recvfrom(65536)) do | msg, sender |
 						xml = Document.new(msg)
 
+						xmldoc3 = XPath.match(xml, "Tig/Client.Connected")
+						if !xmldoc3.empty?
+							if getAttribute(xml, "Client.Connected","Success").to_s == "1"
+								life = getAttribute(xml, "Client.Connected","Lifetime").to_s.to_i / 3
+								if life < 3
+									@lifetime = 1
+								else
+									@lifetime = life
+								end
+
+								brodcast('1')
+								@received = true
+								@cnt = 0
+							else
+								brodcast('0')
+								@received = false
+							end
+						end
+
 						# check if a radio call is made
 						xmldoc = XPath.match(xml, "Tig/Call.Resource")
 						if !xmldoc.empty?
 							if getAttribute(xml, "Call.Resource","Status").to_s == "Granted"
+								@cnt = 0
 								call = Thread.new do
 									begin
 										client = Mysql2::Client.new(
@@ -74,16 +105,18 @@ class Client
 											end
 										client.close
 									rescue  Exception => e
-										puts response.to_s + "MySql Server cannot be found!"
+										@log.error e.to_s + " MySql Server cannot be found!"
+										#puts response.to_s + "MySql Server cannot be found!"
 									end
 								end
-								puts call.to_s + "Radio Call.Resource"
+								# puts call.to_s + "Radio Call.Resource"
 							end
 						end
 						
 						# check if a data is sent from tnx
 						xmldoc2 = XPath.match(xml, "Tig/Subscriber.Location")
 						if !xmldoc2.empty?
+							@cnt = 0
 							log = Thread.new do
 								begin
 									client = Mysql2::Client.new(
@@ -163,29 +196,26 @@ class Client
 									end	
 									client.close
 								rescue  Exception => e
-									puts response.to_s + "MySql Server cannot be found!"
+									@log.error e.to_s + " MySql Server cannot be found!"
+									#puts response.to_s + "MySql Server cannot be found!"
 								end
 
 							end
-							puts log.to_s + "Radio Subscriber.Location"
+							#puts log.to_s + "Radio Subscriber.Location"
 						end
 
-						connected = Thread.new do
-							begin
-								brodcast('1')
-								@received = true
-							rescue  Exception => e
-								puts response.to_s + "Tetra Server cannot be found!"
-							end	
-						end
+						# @log.debug "Radio Activity"
+
 						
-						puts new_msg.to_s + "Radio Activity"
+						#puts new_msg.to_s + "Radio Activity"
+						# puts @received
 						
 					end
 				end
 			rescue  Exception => e
+				@log.error e.to_s + " Tetra Server cannot be found!"
 				brodcast('0')
-				puts response.to_s + "Tetra Server cannot be found!"
+				#puts response.to_s + "Tetra Server cannot be found!"
 				@received = false
 			end
 	  end
@@ -193,23 +223,24 @@ class Client
 
   def brodcast(status)
   	ip = @ips[@index].join(",")
-  	data = "tnx|#{ip}|#{status}"
-  	puts data
+  	lifetime = @lifetime
+  	data = "tnx|#{ip}|#{status}|#{lifetime}"
+  	puts data.to_s
   	socket = UDPSocket.open
-		socket.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, [1].pack('i'))
+		socket.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, 1)
 		socket.send(data, 0, "225.4.5.6", 5000)
 		socket.close 
   end
 
   def send
-		every_so_many_seconds(2) do
+		every_so_many_seconds() do
 			client = Mysql2::Client.new(
 			  :host => @config['database']['host'], 
 			  :username => @config['database']['username'],
 			  :password => @config['database']['password'],
 			  :database => @config['database']['database']
 			)
-
+			# puts self.to_s+ ' => '+Time.now.to_s + " => " + @lifetime.to_s
 			@ips = client.query("SELECT ip FROM servers").each(:as => :array)
 
 			begin
@@ -217,25 +248,37 @@ class Client
 					@index += 1
 					if @index > @ips.count - 1
 						@index = 0
+						@received = false
 					end
 					brodcast('0')
+				else
+					brodcast('1')
 				end
 				@socket.send(@connect, 0, @ips[@index].join(","), @tigport)
-				@received = false
-			rescue
-				handle_error
+				listen
+
+				@cnt += 1
+				if @cnt > 1
+					@cnt = 0
+					@received = false
+				end
+
+			rescue Exception => e
+				@log.error e.to_s
+				#puts e.to_s
+				#handle_error
 			ensure
 				# this_code_is_always_executed
 			end
 		end
   end
 
-  def every_so_many_seconds(seconds)
+  def every_so_many_seconds()
 	  last_tick = Time.now
 	  loop do
 		sleep 0.1
-		if Time.now - last_tick >= seconds
-		  last_tick += seconds
+		if Time.now - last_tick >= @lifetime
+		  last_tick += @lifetime
 		  yield
 		end
 	  end
