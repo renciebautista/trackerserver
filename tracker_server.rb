@@ -20,8 +20,9 @@ class Client
 		# this takes a hash of options, almost all of which map directly
 		# to the familiar database.yml in rails
 		# See http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/MysqlAdapter.html
+		@ip = '0.0.0.0'
 		@config = config
-		@lifetime = 2
+		@lifetime = 4
 		# @config = config
 		@index = 0
 		name = @config['tigserver']['name']
@@ -63,12 +64,14 @@ class Client
 								else
 									@lifetime = life
 								end
-
+								@ip = sender[3].to_s
 								brodcast('1')
 								@received = true
 								@cnt = 0
 							else
+								@lifetime = 4
 								brodcast('0')
+
 								@received = false
 							end
 						end
@@ -214,7 +217,7 @@ class Client
 				end
 			rescue  Exception => e
 				@log.error e.to_s + " Tetra Server cannot be found!"
-				brodcast('0')
+				# brodcast('0')
 				#puts response.to_s + "Tetra Server cannot be found!"
 				@received = false
 			end
@@ -222,10 +225,11 @@ class Client
   end
 
   def brodcast(status)
-  	ip = @ips[@index].join(",")
+  	# ip = @ips[@index].join(",")
+  	ip = @ip
   	lifetime = @lifetime
   	data = "tnx|#{ip}|#{status}|#{lifetime}"
-  	puts data.to_s
+  	# puts data.to_s
   	socket = UDPSocket.open
 		socket.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, 1)
 		socket.send(data, 0, "225.4.5.6", 5000)
@@ -244,24 +248,32 @@ class Client
 			@ips = client.query("SELECT ip FROM servers").each(:as => :array)
 
 			begin
+
 				if !@received
-					@index += 1
-					if @index > @ips.count - 1
-						@index = 0
-						@received = false
-					end
+					# @index += 1
+					# if @index > @ips.count - 1
+					# 	@index = 0
+					# 	@received = false
+					# end
+					@ip = '0.0.0.0'
+					@lifetime = 4
 					brodcast('0')
 				else
 					brodcast('1')
 				end
-				@socket.send(@connect, 0, @ips[@index].join(","), @tigport)
+				# @socket.send(@connect, 0, @ips[@index].join(","), @tigport)
 				listen
 
-				@cnt += 1
-				if @cnt > 1
-					@cnt = 0
-					@received = false
+				# @cnt += 1
+				# if @cnt > 1
+				# 	@cnt = 0
+				# 	@received = false
+				# end
+				@ips.each do |ip|
+					# puts index
+					@socket.send(@connect, 0, ip.join(","), @tigport)
 				end
+				
 
 			rescue Exception => e
 				@log.error e.to_s
