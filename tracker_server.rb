@@ -7,11 +7,11 @@ require 'logger'
 include REXML
 
 # daemonize 
-Process.daemon(true,false)
+# Process.daemon(true,false)
  
-# write pid
-pid_file = File.dirname(__FILE__) + "#{__FILE__}.pid"
-File.open(pid_file, 'w') {|f| f.write Process.pid }
+# # write pid
+# pid_file = File.dirname(__FILE__) + "#{__FILE__}.pid"
+# File.open(pid_file, 'w') {|f| f.write Process.pid }
 
 class Client
 	def initialize(socket,config)
@@ -22,12 +22,13 @@ class Client
 		# See http://api.rubyonrails.org/classes/ActiveRecord/ConnectionAdapters/MysqlAdapter.html
 		@ip = '0.0.0.0'
 		@config = config
-		@lifetime = 4
-		# @config = config
+		@default = 4 # default time 
+		@lifetime = @default
+
 		@index = 0
 		name = @config['tigserver']['name']
 		version = @config['tigserver']['version']
-		# @tigip = @ips[@index].join(",")
+
 		@tigport = @config['tigserver']['txport']
 		@connect = "<?xml version=\"1.0\"?><Tig><Client.Connect Name=\"#{name}\" Version=\"#{version}\" /></Tig>"
 		
@@ -69,7 +70,7 @@ class Client
 								@received = true
 								@cnt = 0
 							else
-								@lifetime = 4
+								@lifetime = @default
 								brodcast('0')
 
 								@received = false
@@ -207,9 +208,6 @@ class Client
 							#puts log.to_s + "Radio Subscriber.Location"
 						end
 
-						# @log.debug "Radio Activity"
-
-						
 						#puts new_msg.to_s + "Radio Activity"
 						# puts @received
 						
@@ -217,8 +215,6 @@ class Client
 				end
 			rescue  Exception => e
 				@log.error e.to_s + " Tetra Server cannot be found!"
-				# brodcast('0')
-				#puts response.to_s + "Tetra Server cannot be found!"
 				@received = false
 			end
 	  end
@@ -229,7 +225,7 @@ class Client
   	ip = @ip
   	lifetime = @lifetime
   	data = "tnx|#{ip}|#{status}|#{lifetime}"
-  	# puts data.to_s
+  	puts data.to_s
   	socket = UDPSocket.open
 		socket.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, 1)
 		socket.send(data, 0, "225.4.5.6", 5000)
@@ -250,34 +246,21 @@ class Client
 			begin
 
 				if !@received
-					# @index += 1
-					# if @index > @ips.count - 1
-					# 	@index = 0
-					# 	@received = false
-					# end
 					@ip = '0.0.0.0'
-					@lifetime = 4
+					@lifetime = @default
 					brodcast('0')
 				else
 					brodcast('1')
 				end
-				# @socket.send(@connect, 0, @ips[@index].join(","), @tigport)
 				listen
 
-				# @cnt += 1
-				# if @cnt > 1
-				# 	@cnt = 0
-				# 	@received = false
-				# end
 				@ips.each do |ip|
-					# puts index
 					@socket.send(@connect, 0, ip.join(","), @tigport)
 				end
 				
 
 			rescue Exception => e
 				@log.error e.to_s
-				#puts e.to_s
 				#handle_error
 			ensure
 				# this_code_is_always_executed
