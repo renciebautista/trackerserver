@@ -4,14 +4,15 @@ require 'socket'
 require 'mysql2'
 require 'rexml/document'
 require 'logger'
+require 'net/http'
 include REXML
 
 # daemonize 
-# Process.daemon(true,false)
+Process.daemon(true,false)
  
-# # write pid
-# pid_file = File.dirname(__FILE__) + "#{__FILE__}.pid"
-# File.open(pid_file, 'w') {|f| f.write Process.pid }
+# write pid
+pid_file = File.dirname(__FILE__) + "#{__FILE__}.pid"
+File.open(pid_file, 'w') {|f| f.write Process.pid }
 
 class Client
 	def initialize(socket,config)
@@ -24,6 +25,9 @@ class Client
 		@config = config
 		@default = 4 # default time 
 		@lifetime = @default
+
+		@url = @config['webserver']['url']
+		@send = @config['webserver']['send']
 
 		@index = 0
 		name = @config['tigserver']['name']
@@ -38,6 +42,8 @@ class Client
 		@received = false
 		@cnt = 0
 		send
+
+		# upload
 	end
 
 	def getAttribute(xml, tagname, attribute)
@@ -156,14 +162,20 @@ class Client
 										AND mnc = #{mnc}
 										AND ssi = #{ssi}"
 
+									send_log = false
+									id = ''
+									code = ''
 									radio_result = client.query(query);
 									if radio_result.count > 0 
+										send_log = true
 										radio_result.each do |row|
 												radio_id = row["id"].to_s
 												mcc = row["mcc"].to_s
 												mnc = row["mnc"].to_s
 												ssi = row["ssi"].to_s
+												id = ssi
 												tracker_code = row["tracker_code"].to_s
+												code = tracker_code
 												image_index = row["image_index"].to_s
 												client.query("INSERT INTO radio_logs (radio_id, mcc, mnc, ssi, tracker_code,
 													subscriber_name, uplink, speed, course, alt, max_pos_error, lat, lng, image_index)
@@ -181,6 +193,7 @@ class Client
 										
 										result = client.query(query2)
 										if result.count > 0
+											send_log = true
 											result.each do |row|
 												train_id = row["id"].to_s
 												train_code = row["train_code"].to_s
@@ -188,7 +201,9 @@ class Client
 												mcc = row["mcc"].to_s
 												mnc = row["mnc"].to_s
 												ssi = row["ssi"].to_s
+												id = ssi
 												tracker_code = row["tracker_code"].to_s
+												code = tracker_code
 												image_index = row["image_index"].to_s
 												head = row["head"].to_s
 												client.query("INSERT INTO logs (train_id,train_code, train_desc, mcc, mnc, ssi, tracker_code, head,
@@ -198,7 +213,16 @@ class Client
 											end
 										end
 									end	
+
+									
+
 									client.close
+
+									if send_log
+										if @send
+									 		send1020(id,code,lat,lng)
+									 	end
+									end
 								rescue  Exception => e
 									@log.error e.to_s + " MySql Server cannot be found!"
 									#puts response.to_s + "MySql Server cannot be found!"
@@ -230,6 +254,17 @@ class Client
 		socket.setsockopt(Socket::IPPROTO_IP, Socket::IP_TTL, 1)
 		socket.send(data, 0, "225.4.5.6", 5000)
 		socket.close 
+  end
+
+  def send1020(id,code,lat,lng)
+  	puts 'send'
+ 	if @send
+ 		uri = URI(@url)
+ 		today = Time.now.strftime("%Y%m%d%H%M%S").to_i
+ 		param = id.to_s+','+code.to_s+','+today.to_s+','+lat.to_s+','+lng.to_s
+		res = Net::HTTP.post_form(uri, 'cmd' => 'loc', 'param' => param)
+		puts res.body
+ 	end
   end
 
   def send
